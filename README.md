@@ -9,7 +9,7 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
 ## Requirements
 
 - **Recovery:** TWRP, PBRP, or OrangeFox.
-- **Partitions:** `system`, `system_ext`, `product` in **ext4** or **f2fs** format (for other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-device).
+- **Partitions:** `system`, `system_ext`, `product` in **ext4** or **f2fs** format (for other file systems, see this repository: [`gapps-to-vanilla-device`](https://github.com/MootComb/gapps-to-vanilla-device))
 - A GSI firmware for which a **GAPPS** and **VANILLA** pair of the same version exists (used to generate the ZIP).
 
 ---
@@ -78,7 +78,7 @@ Installation logs:
 
 ## Limitations
 
-- Only **ext4** or **f2fs**. (For other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-device)
+- Only **ext4** or **f2fs**. (For other file systems, see this repository: [`gapps-to-vanilla-device`](https://github.com/MootComb/gapps-to-vanilla-device))
 - Requires a **GAPPS** and **VANILLA** pair of the same GSI version to generate the ZIP.
 
 ---
