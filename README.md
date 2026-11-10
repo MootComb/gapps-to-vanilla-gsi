@@ -1,4 +1,4 @@
-# gapps-to-vanilla
+<h1 align="center">gapps-to-vanilla ext4</h1>
 
 A recovery script that removes all Google apps (GAPPS) from a GSI firmware and replaces them with AOSP versions. The result is a "vanilla" system without Google services, but with AOSP equivalents.
 
