@@ -39,6 +39,15 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
 
 ---
 
+## After Installation: Replacing GMS
+
+To make apps that depend on Google services work, install MicroG:
+
+- [GmsCore](https://github.com/microg/GmsCore/releases) — packages `gms` and `vending`;
+- [GsfProxy](https://github.com/MootComb/GsfProxy/releases) — package `gsf`.
+
+---
+
 ## How It Works
 
 1. The script locates the `system`, `product`, and `system_ext` partitions (supports both separate mount points and subdirectories under `/system_root/system/...`).
@@ -47,15 +56,6 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
 4. It unpacks `system/`, `product/`, and `system_ext/` from the ZIP and restores the files to the corresponding partitions.
 5. If there is not enough space in the target partition, it moves the file to another partition (with limitations, see above).
 6. It remounts `product` and `system_ext` as RO and runs `sync`.
-
----
-
-## After Installation: Replacing GMS
-
-To make apps that depend on Google services work, install MicroG:
-
-- [GmsCore](https://github.com/microg/GmsCore/releases) — packages `gms` and `vending`;
-- [GsfProxy](https://github.com/MootComb/GsfProxy/releases) — package `gsf`.
 
 ## What It Specifically Does
 
@@ -67,7 +67,7 @@ To make apps that depend on Google services work, install MicroG:
    - Google media (ringtones, notifications, alarms).
 2. Restores AOSP versions:
    - `PackageInstaller`, `PrintRecommendationService`, `ExactCalculator`, `WebView`, `LatinIME`, `ThemePicker`, `Provision`, `StatementService`, `aconfig` files, etc.
-3. Supports fallback: if there is not enough space in the target partition, the file is moved to another partition (only for `app/`, `priv-app/`, `overlay/`, `media/`, `fonts/`, `usr/`, `etc/`; `framework/`, `lib/`, `bin/`, `etc/permissions/` are not moved).
+3. Supports fallback: if there is not enough space in the target partition, the file is moved to another partition (only for `app/`, `priv-app/`, `overlay/`, `media/`, `fonts/`, `usr/`, `etc/`)
 
 Installation logs:
 - `/tmp/gapps-to-vanilla.log` — full log.
@@ -79,8 +79,7 @@ Installation logs:
 ## Limitations
 
 - Only **ext4** or **f2fs**. (For other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-erofs)
-- Does not touch `framework/`, `lib/`, `bin/`, `etc/permissions/` during fallback — moving them between partitions breaks booting.
-- Requires a GAPPS + VANILLA pair of the same GSI version to generate the ZIP.
+- Requires a **GAPPS** and **VANILLA** pair of the same GSI version to generate the ZIP.
 
 ---
 
