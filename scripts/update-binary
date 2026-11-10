@@ -264,31 +264,53 @@ fi
 DELETE_LOG="/tmp/deleted_files.log"
 : > "$DELETE_LOG"
 
+# Given a relative path like "priv-app/Exm" or "app/Exm",
+# echo the original path plus its app/ <-> priv-app/ counterpart.
+app_path_variants() {
+    local rel="$1"
+    case "$rel" in
+        priv-app/*)
+            echo "$rel"
+            echo "app/${rel#priv-app/}"
+            ;;
+        app/*)
+            echo "$rel"
+            echo "priv-app/${rel#app/}"
+            ;;
+        *)
+            echo "$rel"
+            ;;
+    esac
+}
+
 delete_item() {
     local target="$1"
     local clean="${target#/}"
     local found=0 deleted=0 failed=0
 
-    for base in "$REAL_SYSTEM" "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
-        [ -n "$base" ] && [ -d "$base" ] || continue
-        local path="$base/$clean"
-        path=$(echo "$path" | sed 's|//*|/|g')
+    local variant
+    for variant in $(app_path_variants "$clean"); do
+        for base in "$REAL_SYSTEM" "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
+            [ -n "$base" ] && [ -d "$base" ] || continue
+            local path="$base/$variant"
+            path=$(echo "$path" | sed 's|//*|/|g')
 
-        if [ -e "$path" ] && ! is_symlink "$path"; then
-            found=1
-            log "DELETING: $path"
-            echo "TRY: $path" >> "$DELETE_LOG"
-            rm -rf "$path" 2>>"$LOG_FILE"
-            if [ ! -e "$path" ]; then
-                log "SUCCESS: Deleted: $path"
-                echo "OK: $path" >> "$DELETE_LOG"
-                deleted=1
-            else
-                log "FAILED: path still exists: $path"
-                echo "FAIL: $path" >> "$DELETE_LOG"
-                failed=1
+            if [ -e "$path" ] && ! is_symlink "$path"; then
+                found=1
+                log "DELETING: $path"
+                echo "TRY: $path" >> "$DELETE_LOG"
+                rm -rf "$path" 2>>"$LOG_FILE"
+                if [ ! -e "$path" ]; then
+                    log "SUCCESS: Deleted: $path"
+                    echo "OK: $path" >> "$DELETE_LOG"
+                    deleted=1
+                else
+                    log "FAILED: path still exists: $path"
+                    echo "FAIL: $path" >> "$DELETE_LOG"
+                    failed=1
+                fi
             fi
-        fi
+        done
     done
 
     if [ $found -eq 0 ]; then
@@ -339,16 +361,11 @@ priv-app/PrebuiltDeskClockGoogle_76007351
 priv-app/SoundPicker
 priv-app/GooglePackageInstaller
 priv-app/TrebleApp
+priv-app/Wellbeing
 app/GooglePrintRecommendationService
 app/GoogleExtShared
 "
 
-# Files to exclude from the vanilla RESTORE set only.
-# We must NOT overwrite these on the target: their signatures differ from
-# the GSI versions already installed, which causes
-# "Signature mismatch" bootloop (observed: me.phh.treble.app).
-# But we also must NOT delete them from the target, since they are part
-# of the GSI itself.
 REMOVE_FROM_RESTORE_ONLY="
 etc/NOTICE.xml.gz
 "
@@ -356,23 +373,25 @@ etc/NOTICE.xml.gz
 remove_extra_apps_from_target() {
     log "Removing extra Google apps from target partitions..."
     ui_print "Removing extra Google apps..."
-    local app base path
+    local app base path variant
     for app in $EXTRA_APPS_LIST; do
         [ -z "$app" ] && continue
-        for base in "$REAL_SYSTEM" "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
-            [ -n "$base" ] && [ -d "$base" ] || continue
-            path="$base/$app"
-            if [ -e "$path" ] && ! is_symlink "$path"; then
-                log "DELETING EXTRA APP: $path"
-                rm -rf "$path" 2>>"$LOG_FILE"
-                if [ ! -e "$path" ]; then
-                    log "SUCCESS: Deleted extra app: $path"
-                    ui_print "  Deleted: $path"
-                else
-                    log "FAILED: Could not delete extra app: $path"
-                    DELETE_FAILED=$((DELETE_FAILED + 1))
+        for variant in $(app_path_variants "$app"); do
+            for base in "$REAL_SYSTEM" "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
+                [ -n "$base" ] && [ -d "$base" ] || continue
+                path="$base/$variant"
+                if [ -e "$path" ] && ! is_symlink "$path"; then
+                    log "DELETING EXTRA APP: $path"
+                    rm -rf "$path" 2>>"$LOG_FILE"
+                    if [ ! -e "$path" ]; then
+                        log "SUCCESS: Deleted extra app: $path"
+                        ui_print "  Deleted: $path"
+                    else
+                        log "FAILED: Could not delete extra app: $path"
+                        DELETE_FAILED=$((DELETE_FAILED + 1))
+                    fi
                 fi
-            fi
+            done
         done
     done
 }
@@ -392,12 +411,6 @@ log "Step 4/5: Restoring VANILLA files"
 cd "$TMPDIR" || abort "Cannot cd to $TMPDIR"
 unzip -o "$ZIPFILE" -d . > /dev/null 2>&1
 
-# ---------------------------------------------------------------------------
-# Filter out non-GApps system files from the restore set.
-# These are part of the GSI and already carry the correct signatures.
-# Overwriting them with vanilla-zip versions causes "Signature mismatch"
-# on boot (observed: me.phh.treble.app in shared user android.uid.system).
-# ---------------------------------------------------------------------------
 log "Filtering non-GApps files from restore set..."
 for f in $REMOVE_FROM_RESTORE_ONLY; do
     for part in system product system_ext; do
