@@ -27,7 +27,7 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
 ### Method 2 — Generate the ZIP yourself via GitHub Actions
 
 1. Fork the repository. Go to **Actions** and click **"I understand my workflows, go ahead and enable them"**.
-2. Go to **Actions → release → Run workflow**. In the window that opens:
+2. Go to **Actions → Release → Run workflow**. In the window that opens:
    - in the **GitHub API URL** field, paste the URL of the repository containing the GSI firmware — it must have releases with **both GAPPS and VANILLA**;
    - in the **Number of unique versions** field, specify how many versions back to go (if you have an old version, set a higher number).
 3. Click **Run workflow**, wait for it to finish, then go to **Releases** and download the ZIP.
