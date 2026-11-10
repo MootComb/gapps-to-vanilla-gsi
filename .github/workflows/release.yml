@@ -510,7 +510,10 @@ jobs:
             
             while IFS= read -r item; do
               if [[ -n "$item" ]]; then
-                echo "/$item" >> "$ZIP_DIR/delete.list"
+                rel="${item#system/}"
+                rel="${rel#product/}"
+                rel="${rel#system_ext/}"
+                echo "/$rel" >> "$ZIP_DIR/delete.list"
               fi
             done < gapps_only.txt
             
