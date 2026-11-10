@@ -350,8 +350,6 @@ app/GoogleExtShared
 # But we also must NOT delete them from the target, since they are part
 # of the GSI itself.
 REMOVE_FROM_RESTORE_ONLY="
-app/ExtShared/ExtShared.apk
-apex/com.android.virt.apex
 etc/NOTICE.xml.gz
 "
 
