@@ -364,6 +364,10 @@ priv-app/TrebleApp
 priv-app/Wellbeing
 app/GooglePrintRecommendationService
 app/GoogleExtShared
+app/ApertureLensLauncher
+priv-app/HotwordEnrollmentOKGoogleCORTEXM4
+priv-app/HotwordEnrollmentXGoogleCORTEXM4
+app/GoogleContacts
 "
 
 REMOVE_FROM_RESTORE_ONLY="
