@@ -436,6 +436,24 @@ done
 RESTORE_LOG="/tmp/restored_files.log"
 : > "$RESTORE_LOG"
 
+# Returns 0 if the given relative path is safe to fall back to another partition.
+# Framework, libs, bins and permission XML must NOT be relocated, otherwise the
+# system will boot with missing core components.
+restore_relocatable() {
+    local rel="$1"
+    case "$rel" in
+        framework/*|lib/*|lib64/*|bin/*|xbin/*|etc/permissions/*|etc/permissions)
+            return 1
+            ;;
+        app/*|priv-app/*|overlay/*|media/*|fonts/*|usr/*|etc/*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 restore_dir() {
     local src_dir="$1"
     local target_base="$2"
@@ -446,7 +464,16 @@ restore_dir() {
         return 0
     fi
 
-    log "RESTORING $name -> $target_base"
+    # Preferred destination first, then the other writable partitions.
+    local candidates="$target_base"
+    local alt
+    for alt in "$REAL_SYSTEM" "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
+        [ -n "$alt" ] && [ -d "$alt" ] || continue
+        [ "$alt" = "$target_base" ] && continue
+        candidates="$candidates $alt"
+    done
+
+    log "RESTORING $name -> $target_base (fallback candidates: $candidates)"
     ui_print "Restoring $name to $target_base"
 
     local status_file="/tmp/restore_status_$name.txt"
@@ -455,34 +482,68 @@ restore_dir() {
     local filelist="/tmp/restore_filelist_$name.txt"
     ( cd "$src_dir" && find . -type f ) > "$filelist" 2>/dev/null
 
-    local file rel dest dest_dir
+    local file rel dest dest_dir fsize need_kb free_kb placed cand
     while IFS= read -r file; do
         [ -z "$file" ] && continue
         rel="${file#./}"
-        dest="$target_base/$rel"
-        dest_dir=$(dirname "$dest")
+        fsize=$(stat -c %s "$src_dir/$rel" 2>/dev/null || echo 0)
+        need_kb=$(( (fsize + 1023) / 1024 + 64 ))
+        placed=0
 
-        if [ ! -d "$dest_dir" ]; then
-            mkdir -p "$dest_dir" 2>>"$LOG_FILE"
-            if [ ! -d "$dest_dir" ]; then
-                log "FAILED mkdir: $dest_dir"
-                echo "FAIL: $dest" >> "$RESTORE_LOG"
-                echo "FAIL" >> "$status_file"
+        for cand in $candidates; do
+            dest="$cand/$rel"
+            dest_dir=$(dirname "$dest")
+
+            # Do not duplicate a file that already exists elsewhere.
+            if [ "$cand" != "$target_base" ] && [ -e "$dest" ]; then
+                log "SKIP fallback (already exists): $dest"
+                placed=1
+                break
+            fi
+
+            # Refuse to relocate non-relocatable files.
+            if [ "$cand" != "$target_base" ]; then
+                if ! restore_relocatable "$rel"; then
+                    log "SKIP fallback (not relocatable): $rel"
+                    continue
+                fi
+            fi
+
+            free_kb=$(df -k "$cand" 2>/dev/null | tail -1 | awk '{print $4}')
+            [ -z "$free_kb" ] && free_kb=0
+
+            if [ "$free_kb" -lt "$need_kb" ] && [ "$cand" != "$target_base" ]; then
+                log "NO SPACE: $cand for $rel (need ${need_kb}KB, free ${free_kb}KB)"
                 continue
             fi
-        fi
 
-        cp -f "$src_dir/$rel" "$dest" 2>>"$LOG_FILE"
-        if [ $? -eq 0 ] && [ -f "$dest" ]; then
-            chmod 644 "$dest" 2>/dev/null
-            chown root:root "$dest" 2>/dev/null
-            chcon --reference="$src_dir/$rel" "$dest" 2>/dev/null || true
-            log "RESTORED: $dest"
-            echo "OK: $dest" >> "$RESTORE_LOG"
-            echo "OK" >> "$status_file"
-        else
-            log "FAILED cp: $rel -> $dest"
-            echo "FAIL: $dest" >> "$RESTORE_LOG"
+            if [ ! -d "$dest_dir" ]; then
+                mkdir -p "$dest_dir" 2>>"$LOG_FILE"
+                if [ ! -d "$dest_dir" ]; then
+                    log "FAILED mkdir: $dest_dir"
+                    continue
+                fi
+            fi
+
+            cp -f "$src_dir/$rel" "$dest" 2>>"$LOG_FILE"
+            if [ $? -eq 0 ] && [ -f "$dest" ]; then
+                chmod 644 "$dest" 2>/dev/null
+                chown root:root "$dest" 2>/dev/null
+                chcon --reference="$src_dir/$rel" "$dest" 2>/dev/null || true
+                log "RESTORED: $dest (candidate $cand)"
+                echo "OK: $dest" >> "$RESTORE_LOG"
+                echo "OK" >> "$status_file"
+                placed=1
+                break
+            else
+                log "FAILED cp: $rel -> $dest (free ${free_kb}KB, need ${need_kb}KB)"
+                # If the preferred target is full, fall through to the next candidate.
+            fi
+        done
+
+        if [ $placed -eq 0 ]; then
+            log "FAILED all candidates: $rel"
+            echo "FAIL: $rel" >> "$RESTORE_LOG"
             echo "FAIL" >> "$status_file"
         fi
     done < "$filelist"
