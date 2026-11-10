@@ -9,7 +9,7 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
 ## Requirements
 
 - **Recovery:** TWRP, PBRP, or OrangeFox.
-- **Partitions:** `system`, `system_ext`, `product` in **ext4** or **f2fs** format (for other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-erofs).
+- **Partitions:** `system`, `system_ext`, `product` in **ext4** or **f2fs** format (for other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-device).
 - A GSI firmware for which a **GAPPS** and **VANILLA** pair of the same version exists (used to generate the ZIP).
 
 ---
@@ -22,7 +22,7 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
 2. In recovery, go to **Mount** and check the `system`, `system_ext`, and `product` partitions.
 3. In recovery, go to **Settings → General** and **uncheck** **"Unmount system before installing a ZIP"**.
 4. Flash the ZIP via **ADB Sideload** or directly from recovery.
-5. Wipe **data**, **cache**, **dalvik-cache**, and format data (clean install). If you don't want to touch the **data** partition, you will need to run the additional `clear.sh` script from the repository root in adb shell.
+5. Wipe **data**, **cache**, **dalvik-cache**, and format data (clean install). If you don't want to touch the **data** partition, you will need to run the additional [`clear.sh`](clear.sh) script in adb shell.
 
 ### Method 2 — Generate the ZIP yourself via GitHub Actions
 
@@ -35,7 +35,7 @@ It works by comparing the GAPPS image and the VANILLA image of the same GSI buil
    - in recovery **Mount** → check `system`, `system_ext`, `product`;
    - **Settings → General** → uncheck **"Unmount system before installing a ZIP"**;
    - flash the ZIP via **ADB Sideload** or from recovery;
-   - wipe **data**, **cache**, **dalvik-cache**, and format data (clean install). If you don't want to touch the **data** partition, you will need to run the additional `clear.sh` script from the repository root in adb shell.
+   - wipe **data**, **cache**, **dalvik-cache**, and format data (clean install). If you don't want to touch the **data** partition, you will need to run the additional [`clear.sh`](clear.sh) script in adb shell.
 
 ---
 
@@ -78,7 +78,7 @@ Installation logs:
 
 ## Limitations
 
-- Only **ext4** or **f2fs**. (For other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-erofs)
+- Only **ext4** or **f2fs**. (For other file systems, see this repository: https://github.com/MootComb/gapps-to-vanilla-device)
 - Requires a **GAPPS** and **VANILLA** pair of the same GSI version to generate the ZIP.
 
 ---
