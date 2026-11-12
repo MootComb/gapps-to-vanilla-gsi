@@ -551,7 +551,7 @@ jobs:
           
           echo -e "$ALL_ZIPS_LIST" > ${{ env.WORK_DIR }}/all_zips_list.txt
           
-          TOTAL_FILES=$(wc -l < "$TEMP_LIST")
+          TOTAL_FILES=$(grep -c '^- \[' ${{ env.WORK_DIR }}/all_zips_list.txt 2>/dev/null || echo 0)
           
           echo ""
           echo "========================================="
@@ -594,12 +594,6 @@ jobs:
           ### Downloads
     
           ${{ steps.process_releases.outputs.all_zips_list }}
-    
-          ### Instructions
-    
-          1. Download the ZIP for your version
-          2. Flash via TWRP/OrangeFox recovery
-          3. Reboot system
           EOF
     
           if gh release view "$RELEASE_TAG_NAME" --repo "${{ github.repository }}" &>/dev/null; then
