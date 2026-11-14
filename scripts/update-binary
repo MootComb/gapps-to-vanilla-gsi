@@ -31,28 +31,29 @@ abort() {
 
 is_symlink() { [ -L "$1" ]; }
 
+# /proc/mounts format: $1=dev $2=mountpoint $3=fstype $4=opts
 is_rw() {
-    awk -v mp="$1" '$3==mp && $4 ~ /^rw/ {found=1} END{exit !found}' /proc/mounts
+    awk -v mp="$1" '$2==mp && $4 ~ /^rw/ {found=1} END{exit !found}' /proc/mounts
 }
 
 get_device() {
-    awk -v mp="$1" '$3==mp {print $1; exit}' /proc/mounts
+    awk -v mp="$1" '$2==mp {print $1; exit}' /proc/mounts
 }
 
 get_fstype() {
-    awk -v mp="$1" '$3==mp {print $5; exit}' /proc/mounts
+    awk -v mp="$1" '$2==mp {print $3; exit}' /proc/mounts
 }
 
-# Remount a given mount point (or the nearest ancestor that IS a mount point) to RW.
+# Remount a given path (or the nearest ancestor that IS a mount point) to RW.
 mount_rw() {
     local path="$1"
     local mp="$path"
 
-    if ! awk -v m="$mp" '$3==m {found=1} END{exit !found}' /proc/mounts; then
+    if ! awk -v m="$mp" '$2==m {found=1} END{exit !found}' /proc/mounts; then
         local cur="$path"
         mp=""
         while [ -n "$cur" ] && [ "$cur" != "/" ]; do
-            if awk -v m="$cur" '$3==m {found=1} END{exit !found}' /proc/mounts; then
+            if awk -v m="$cur" '$2==m {found=1} END{exit !found}' /proc/mounts; then
                 mp="$cur"; break
             fi
             cur=$(dirname "$cur")
@@ -68,13 +69,22 @@ mount_rw() {
     local dev
     dev=$(get_device "$mp")
 
-    [ -n "$dev" ] && mount -o rw,remount "$dev" "$mp" 2>/dev/null
-    is_rw "$mp" && { log "$mp RW via device ($dev)"; return 0; }
-
+    # 1) remount by mount point (works on ext4 in most recoveries)
     mount -o remount,rw "$mp" 2>/dev/null
     is_rw "$mp" && { log "$mp RW via mount point"; return 0; }
 
-    log "Failed to remount $mp RW"
+    # 2) remount by device
+    [ -n "$dev" ] && mount -o rw,remount "$dev" "$mp" 2>/dev/null
+    is_rw "$mp" && { log "$mp RW via device ($dev)"; return 0; }
+
+    # 3) noverity fallback (harmless if verity is off)
+    mount -o remount,rw,noverity "$mp" 2>/dev/null
+    is_rw "$mp" && { log "$mp RW via mount point (noverity)"; return 0; }
+
+    [ -n "$dev" ] && mount -o rw,remount,noverity "$dev" "$mp" 2>/dev/null
+    is_rw "$mp" && { log "$mp RW via device+noverity ($dev)"; return 0; }
+
+    log "Failed to remount $mp RW (dev=${dev:-?})"
     return 1
 }
 
@@ -87,13 +97,24 @@ find_partition() {
     local mp=""
     case "$name" in
         system)
-            mp=$(awk '$3=="/system_root" || $3=="/system" || $3=="/mnt/system" {print $3; exit}' /proc/mounts)
+            # Prefer the directory that actually contains build.prop.
+            if [ -f /system_root/system/build.prop ]; then
+                log "Found system at /system_root/system"
+                echo /system_root/system
+                return 0
+            fi
+            if [ -f /system/build.prop ]; then
+                log "Found system at /system"
+                echo /system
+                return 0
+            fi
+            mp=$(awk '$2=="/system_root" || $2=="/system" || $2=="/mnt/system" {print $2; exit}' /proc/mounts)
             ;;
         product)
-            mp=$(awk '$3=="/product" || $3=="/system/product" || $3=="/system_root/system/product" {print $3; exit}' /proc/mounts)
+            mp=$(awk '$2=="/product" || $2=="/system/product" || $2=="/system_root/system/product" {print $2; exit}' /proc/mounts)
             ;;
         system_ext)
-            mp=$(awk '$3=="/system_ext" || $3=="/system/system_ext" || $3=="/system_root/system/system_ext" {print $3; exit}' /proc/mounts)
+            mp=$(awk '$2=="/system_ext" || $2=="/system/system_ext" || $2=="/system_root/system/system_ext" {print $2; exit}' /proc/mounts)
             ;;
     esac
 
@@ -631,9 +652,9 @@ ui_print " "
 ui_print "Log saved: $LOG_FILE"
 ui_print "========================================="
 
-# Return product/system_ext to RO to avoid verity issues on reboot.
-log "Remounting product/system_ext back to RO..."
-for p in "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
+# Return ALL touched partitions to RO to avoid verity issues on reboot.
+log "Remounting partitions back to RO..."
+for p in "$REAL_SYSTEM" "$REAL_PRODUCT" "$REAL_SYSTEM_EXT"; do
     [ -n "$p" ] && [ -d "$p" ] || continue
     mount -o remount,ro "$p" 2>/dev/null || true
 done
